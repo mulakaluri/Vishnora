@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { store } from "@/lib/store";
+import { prisma } from "@/lib/db";
 
 export async function GET() {
-  return NextResponse.json(store.listFindings());
+  const rows = await prisma.finding.findMany({
+    orderBy: { time: "desc" },
+    take: 50,
+  });
+  return NextResponse.json(rows);
 }

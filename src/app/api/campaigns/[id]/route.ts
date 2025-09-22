@@ -3,9 +3,10 @@ import { store } from "@/lib/store";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const c = store.listCampaigns().find(x => x.id === params.id);
+  const { id } = await context.params; // 👈 await the params
+  const c = store.listCampaigns().find(x => x.id === id);
   if (!c) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(c);
 }

@@ -1,4 +1,3 @@
-// worker/index.js
 import "dotenv/config";
 import { Worker } from "bullmq";
 import IORedis from "ioredis";
@@ -17,9 +16,11 @@ const redis = new IORedis(process.env.REDIS_URL, {
 
 console.log("Worker starting…");
 
+// Add more logs inside your Worker handler:
 new Worker(
   "campaigns",
   async (job) => {
+    console.log("Processing campaign job:", job.data.campaignId);
     const { campaignId } = job.data;
     await prisma.campaign.update({ where: { id: campaignId }, data: { status: "running" } });
     const c = await prisma.campaign.findUnique({ where: { id: campaignId } });

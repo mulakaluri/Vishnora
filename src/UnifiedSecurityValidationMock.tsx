@@ -343,13 +343,27 @@ function NewCampaignDialog({ onLaunch }: { onLaunch: (payload: Campaign) => void
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
+  // --- merged fields ---
+  const [baseUrl, setBaseUrl] = useState<string>("");
+  const [openapiUrl, setOpenapiUrl] = useState<string>("");
+  const [graphqlUrl, setGraphqlUrl] = useState<string>("");
+
   const launch = async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ module, env, safe, rate, notes }),
+        body: JSON.stringify({
+          module,
+          env,
+          safe,
+          rate,
+          notes,
+          baseUrl,
+          openapiUrl,
+          graphqlUrl,
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data: Campaign = await res.json();
@@ -430,6 +444,20 @@ function NewCampaignDialog({ onLaunch }: { onLaunch: (payload: Campaign) => void
               <span className="text-xs text-muted-foreground">req/sec</span>
             </div>
           </div>
+          {/* --- merged fields below --- */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">Base URL</Label>
+            <Input className="col-span-3" placeholder="https://api.example.com" value={baseUrl} onChange={(e)=>setBaseUrl(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">OpenAPI URL</Label>
+            <Input className="col-span-3" placeholder="https://api.example.com/openapi.json" value={openapiUrl} onChange={(e)=>setOpenapiUrl(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">GraphQL URL</Label>
+            <Input className="col-span-3" placeholder="https://api.example.com/graphql" value={graphqlUrl} onChange={(e)=>setGraphqlUrl(e.target.value)} />
+          </div>
+          {/* --- end merged fields --- */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Notes</Label>
             <Textarea
@@ -490,24 +518,31 @@ function LauncherScreen() {
 
 function DashboardScreen({ onOpenDetail }: { onOpenDetail: (id: string) => void }) {
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const load = async () => {
+  async function load() {
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await fetch("/api/findings");
-      const data: Finding[] = await res.json();
-      setFindings(data);
+      const fRes = await fetch("/api/findings");
+      const fData = await fRes.json();
+      setFindings(fData);
+
+      const cRes = await fetch("/api/campaigns");
+      const cData = await cRes.json();
+      setCampaigns(cData);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error(e);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     load();
+    const id = setInterval(load, 10000);
+    return () => clearInterval(id);
   }, []);
 
   return (
@@ -523,7 +558,7 @@ function DashboardScreen({ onOpenDetail }: { onOpenDetail: (id: string) => void 
           />
           <StatCard icon={GitBranch} label="Paths broken" value="7" delta="demo" />
           <StatCard icon={Zap} label="Avg. time to fix" value="2.4d" delta="demo" />
-          <StatCard icon={Activity} label="Active campaigns" value="1" delta="demo" tone="warn" />
+          <StatCard icon={Activity} label="Active campaigns" value={campaigns.filter(c => c.status === "running" || c.status === "queued").length} delta="live" tone="warn" />
         </div>
         <RiskChart />
         {loading ? (
@@ -588,6 +623,19 @@ function DashboardScreen({ onOpenDetail }: { onOpenDetail: (id: string) => void 
         </Card>
         <NewCampaignDialog onLaunch={() => setTimeout(load, 300)} />
       </div>
+      {!loading && (
+        <div className="mt-4">
+          <h3 className="font-semibold">Recent Campaigns (debug)</h3>
+          <ul className="text-sm text-muted-foreground">
+            {campaigns.map((c) => (
+              <li key={c.id}>
+                {c.id} — {c.module} — <span className="font-medium">{c.status}</span>
+              </li>
+            ))}
+            {campaigns.length === 0 && <li>No campaigns yet.</li>}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

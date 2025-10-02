@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { campaignsQueue } from "@/lib/queue"; // keep if you're queuing jobs
 
 export async function GET() {
   const rows = await prisma.campaign.findMany({
@@ -12,7 +13,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
-  // 1) Ensure a demo org & project exist
+  // 1) Ensure org + project exist (MVP-safe)
   const org = await prisma.organization.upsert({
     where: { id: "demo-org" },
     update: {},
@@ -25,40 +26,28 @@ export async function POST(req: NextRequest) {
     create: { id: "demo-project", name: "Demo Project", orgId: org.id },
   });
 
-  // Ensure a demo service row for relation
-  const svc = await prisma.service.upsert({
-    where: { id: "orders-api" },
-    update: {},
-    create: { id: "orders-api", name: "orders-api", type: "api", projectId: project.id },
-  });
+  // 2) ⬇️ Your snippet goes right here
+  const conf = {
+    baseUrl: body.baseUrl || "",
+    openapiUrl: body.openapiUrl || "",
+    safe: !!body.safe,
+    rate: Number(body.rate || 10),
+  };
 
-  // 2) Create the campaign
-  const c = await prisma.campaign.create({
+  const campaign = await prisma.campaign.create({
     data: {
       projectId: project.id,
       module: body.module ?? "api",
       env: body.env ?? "staging",
       safe: body.safe ?? true,
-      rate: Number(body.rate ?? 10),
-      notes: body.notes ?? "",
-      status: "completed", // for MVP we mark it done immediately
+      rate: conf.rate,
+      notes: JSON.stringify(conf),   // important: stores config for the worker
+      status: "queued",
     },
   });
 
-  // 3) Create a sample finding tied to that campaign
-  await prisma.finding.create({
-    data: {
-      id: `F-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: "BOLA: IDOR on /v1/orders/{id}",
-      severity: "Critical",
-      module: "API & GraphQL Pentest",
-      service: "orders-api",
-      status: "Validated",
-      time: new Date(),
-      campaignId: c.id,
-      serviceId: svc.id,
-    },
-  });
+  // 3) Optional (if using the worker): enqueue the job
+  await campaignsQueue.add("run", { campaignId: campaign.id });
 
-  return NextResponse.json(c, { status: 201 });
+  return NextResponse.json(campaign, { status: 201 });
 }

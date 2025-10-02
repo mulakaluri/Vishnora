@@ -541,7 +541,7 @@ function DashboardScreen({ onOpenDetail }: { onOpenDetail: (id: string) => void 
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 3000); // new: every 3 seconds
+    const id = setInterval(load, 10000); // every 10 seconds
     return () => clearInterval(id);
   }, []);
 
@@ -625,29 +625,46 @@ function DashboardScreen({ onOpenDetail }: { onOpenDetail: (id: string) => void 
       </div>
       {!loading && (
         <div className="mt-4">
-          <h3 className="font-semibold">Recent Campaigns (debug)</h3>
-          <ul className="text-sm text-muted-foreground">
-            {campaigns.map((c) => (
-              <li key={c.id}>
-                {c.id} — {c.module} — <span className="font-medium">{c.status}</span>
-                {(c.status === "queued" || c.status === "running") && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="ml-2"
-                    onClick={async () => {
-                      await fetch(`/api/campaigns/${c.id}/cancel`, { method: "POST" });
-                      toast.success("Cancel requested");
-                      load();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </li>
-            ))}
-            {campaigns.length === 0 && <li>No campaigns yet.</li>}
-          </ul>
+          <h3 className="font-semibold mb-2">Recent Campaigns</h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Module</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {campaigns.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>{c.id}</TableCell>
+                  <TableCell>{c.module}</TableCell>
+                  <TableCell>{c.status}</TableCell>
+                  <TableCell>
+                    {(c.status === "queued" || c.status === "running") && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={async () => {
+                          await fetch(`/api/campaigns/${c.id}/cancel`, { method: "POST" });
+                          toast.success("Cancel requested");
+                          load();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {campaigns.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>No campaigns yet.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

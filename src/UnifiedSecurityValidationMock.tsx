@@ -632,7 +632,7 @@ function DashboardScreen({ onOpenDetail }: { onOpenDetail: (id: string) => void 
                 {c.id} — {c.module} — <span className="font-medium">{c.status}</span>
                 {(c.status === "queued" || c.status === "running") && (
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="destructive"
                     className="ml-2"
                     onClick={async () => {

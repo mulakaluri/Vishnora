@@ -4,13 +4,12 @@ import { campaignsQueue } from "@/lib/queue";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  const { id } = params;
+  const { id } = context.params;
 
   // Remove from queue if still queued (BullMQ v4+)
   try {
-    // Try to remove by jobId (if you set jobId = campaignId when adding)
     await campaignsQueue.removeJobs(id);
   } catch (e) {
     // ignore if not in queue
